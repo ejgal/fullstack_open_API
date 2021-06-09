@@ -2,6 +2,12 @@ require('dotenv').config()
 const express = require('express');
 const cors = require('cors')
 const Note = require('./models/note')
+const WebSocket = require('ws')
+const http = require('http')
+
+
+
+const noteEventEmitter = Note.watch()
 
 const app = express()
 app.use(cors())
@@ -71,6 +77,30 @@ app.delete('/api/notes/:id', (request, response, next) => {
         .catch(error => next(error))
 })
 
+
+
+
 const PORT = process.env.PORT || 3001
-app.listen(PORT)
+
+
+const server = http.createServer(app)
+const wss = new WebSocket.Server({ server })
+
+wss.on('connection', (ws) => {
+    noteEventEmitter.on('change', change => {
+        console.log(JSON.stringify(change))
+        let returnedObject = change.fullDocument
+        ws.send(JSON.stringify(returnedObject))
+        ws.send('fetch')
+    })
+
+    ws.on('message', (message) => {
+        console.log("received", message)
+        ws.send('Hello, you sent ', message)
+    })
+    ws.send('Hi , I am WebSocket server')
+})
+
+// app.listen(PORT)
+server.listen(PORT)
 console.log(`Server running on port ${PORT}`)
